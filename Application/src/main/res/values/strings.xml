@@ -33,4 +33,10 @@
     <string name="menu_disconnect">Disconnect</string>
     <string name="menu_scan">Scan</string>
     <string name="menu_stop">Stop</string>
+    
+    <!-- items -->
+    <string name="inputpwd">Please input password</string>
+    <string name="confirm">Confrim</string>
+    <string name="setwifi">Set Wifi</string>
+    <string name="castpal_device">Device</string>
 </resources>

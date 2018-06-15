@@ -16,16 +16,22 @@
 
 package com.example.android.bluetoothlegatt;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.Settings;
+import android.support.v13.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -37,6 +43,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.UUID;
+
+import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 
 /**
  * Activity for scanning and displaying available Bluetooth LE devices.
@@ -50,6 +59,8 @@ public class DeviceScanActivity extends ListActivity {
     private static final int REQUEST_ENABLE_BT = 1;
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
+
+    private int REQUEST_PERMISSION_BT = 80055;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -112,6 +123,14 @@ public class DeviceScanActivity extends ListActivity {
     protected void onResume() {
         super.onResume();
 
+
+        if(Build.VERSION.SDK_INT >= 23)
+        {
+            if(ContextCompat.checkSelfPermission(this, ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{ACCESS_COARSE_LOCATION}, REQUEST_PERMISSION_BT);
+            }
+        }
+
         // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
         // fire an intent to display a dialog asking the user to grant permission to enable it.
         if (!mBluetoothAdapter.isEnabled()) {
@@ -171,7 +190,9 @@ public class DeviceScanActivity extends ListActivity {
             }, SCAN_PERIOD);
 
             mScanning = true;
-            mBluetoothAdapter.startLeScan(mLeScanCallback);
+
+            final UUID serviceUuids[] = {SampleGattAttributes.BLE_UUID_BLE_SERVICE};
+            mBluetoothAdapter.startLeScan(serviceUuids, mLeScanCallback);
         } else {
             mScanning = false;
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
@@ -238,7 +259,7 @@ public class DeviceScanActivity extends ListActivity {
             if (deviceName != null && deviceName.length() > 0)
                 viewHolder.deviceName.setText(deviceName);
             else
-                viewHolder.deviceName.setText(R.string.unknown_device);
+                viewHolder.deviceName.setText(R.string.castpal_device);
             viewHolder.deviceAddress.setText(device.getAddress());
 
             return view;

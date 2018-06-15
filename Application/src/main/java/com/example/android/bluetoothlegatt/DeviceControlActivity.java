@@ -17,6 +17,7 @@
 package com.example.android.bluetoothlegatt;
 
 import android.app.Activity;
+import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.content.BroadcastReceiver;
@@ -31,6 +32,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ExpandableListView;
 import android.widget.SimpleExpandableListAdapter;
 import android.widget.TextView;
@@ -38,6 +40,7 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * For a given BLE device, this Activity provides the user interface to connect, display data,
@@ -53,17 +56,19 @@ public class DeviceControlActivity extends Activity {
 
     private TextView mConnectionState;
     private TextView mDataField;
+    private Button mButton;
     private String mDeviceName;
     private String mDeviceAddress;
     private ExpandableListView mGattServicesList;
     private BluetoothLeService mBluetoothLeService;
-    private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics =
-            new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
+    private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics;
     private boolean mConnected = false;
     private BluetoothGattCharacteristic mNotifyCharacteristic;
 
     private final String LIST_NAME = "NAME";
     private final String LIST_UUID = "UUID";
+
+    private final int REQUEST_SETWIFI = 1;
 
     // Code to manage Service lifecycle.
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -101,11 +106,13 @@ public class DeviceControlActivity extends Activity {
                 invalidateOptionsMenu();
             } else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 mConnected = false;
+                mButton.setVisibility(View.INVISIBLE);
                 updateConnectionState(R.string.disconnected);
                 invalidateOptionsMenu();
                 clearUI();
             } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 // Show all the supported services and characteristics on the user interface.
+                mButton.setVisibility(View.VISIBLE);
                 displayGattServices(mBluetoothLeService.getSupportedGattServices());
             } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
                 displayData(intent.getStringExtra(BluetoothLeService.EXTRA_DATA));
@@ -172,6 +179,16 @@ public class DeviceControlActivity extends Activity {
         getActionBar().setDisplayHomeAsUpEnabled(true);
         Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+
+        mButton = findViewById(R.id.button_setwifi);
+        mButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(DeviceControlActivity.this, WifiScanActivity.class);
+                startActivityForResult(intent, REQUEST_SETWIFI);
+            }
+        });
+        mButton.setVisibility(View.INVISIBLE);
     }
 
     @Override
@@ -296,6 +313,42 @@ public class DeviceControlActivity extends Activity {
                 new int[] { android.R.id.text1, android.R.id.text2 }
         );
         mGattServicesList.setAdapter(gattServiceAdapter);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if(requestCode == REQUEST_SETWIFI && resultCode == RESULT_OK) {
+            String myssid = data.getStringExtra(WifiScanActivity.MYSSID);
+            String mypwd = data.getStringExtra(WifiScanActivity.MYPWD);
+            {
+                byte[] ch = new byte[85];
+                ch[0] = 0x01;
+                char[] str = "amlogicblewifisetup".toCharArray();
+
+                for (int i = 0; i < 19; i++) {
+                    ch[i + 1] = (byte) str[i];
+                }
+
+                for (int i = 0; i < 32; i++) {
+                    if (i < myssid.length()) {
+                        ch[i + 1 + 19] = (byte) myssid.charAt(i);
+                    } else
+                        ch[i + 1 + 19] = 0;
+                }
+                for (int i = 0; i < 32; i++) {
+                    if (i < mypwd.length()) {
+                        ch[i + 1 + 19 + 32] = (byte) mypwd.charAt(i);
+                    } else
+                        ch[i + 1 + 19 + 32] = 0;
+                }
+                ch[19 + 32 + 32 + 1] = 0x04;
+                mBluetoothLeService.writeCharacteristic(SampleGattAttributes.BLE_UUID_BLE_SERVICE, SampleGattAttributes.BLE_UUID_BLE_SERVICE_WIFI_CHAR, ch);
+                return;
+
+            }
+        }
     }
 
     private static IntentFilter makeGattUpdateIntentFilter() {
